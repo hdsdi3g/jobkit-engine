@@ -168,7 +168,8 @@ class BackgroundServiceTest {
 		        .schedule(scheduleCommandCaptor.capture(), eq(timedInterval), eq(MILLISECONDS));
 
 		when(nextRunReference.isDone()).thenReturn(false);
-		assertThrows(IllegalStateException.class, () -> afterRunCommandCaptor.getValue().accept(null));
+		final var value = afterRunCommandCaptor.getValue();
+		assertThrows(IllegalStateException.class, () -> value.accept(null));
 	}
 
 	@Test

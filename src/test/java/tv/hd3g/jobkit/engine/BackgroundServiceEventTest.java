@@ -21,7 +21,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.verification.VerificationMode;
 
-public class BackgroundServiceEventTest {
+class BackgroundServiceEventTest {
 
 	@Mock
 	BackgroundServiceEvent event;
