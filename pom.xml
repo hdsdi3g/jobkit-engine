@@ -51,22 +51,22 @@
 		<dependency>
 			<groupId>tv.hd3g.commons</groupId>
 			<artifactId>interfaces</artifactId>
-			<version>0.2.0</version>
+			<version>0.3.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.logging.log4j</groupId>
 			<artifactId>log4j-api</artifactId>
-			<version>2.11.0</version>
+			<version>2.13.3</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.logging.log4j</groupId>
 			<artifactId>log4j-core</artifactId>
-			<version>2.11.0</version>
+			<version>2.13.3</version>
 		</dependency>
 		<dependency>
 			<groupId>tv.hd3g.commons</groupId>
 			<artifactId>codepolicyvalidation</artifactId>
-			<version>0.0.1</version>
+			<version>0.1.0</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
