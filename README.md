@@ -8,7 +8,11 @@ Please use Maven and Java 11 (OpenJDK) for build and test.
 
 Use internally Log4j2 for logging.
 
+![Java CI with Maven](https://github.com/hdsdi3g/jobkit-engine/workflows/Java%20CI%20with%20Maven/badge.svg)
+
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=hdsdi3g_jobkit-engine&metric=alert_status)](https://sonarcloud.io/dashboard?id=hdsdi3g_jobkit-engine)
+
+![CodeQL](https://github.com/hdsdi3g/jobkit-engine/workflows/CodeQL/badge.svg)
 
 ## Test
 
