@@ -222,7 +222,7 @@ public class BackgroundService {
 		if (retryAfterTimeFactor <= 0d) {
 			throw new IllegalArgumentException("Invalid retryAfterTimeFactor: " + retryAfterTimeFactor);
 		}
-		this.retryAfterTimeFactor = retryAfterTimeFactor;
+		setInternalRetryAfterTimeFactor(retryAfterTimeFactor);
 		event.onChangeRetryAfterTimeFactor(name, spoolName, retryAfterTimeFactor);
 		return this;
 	}
