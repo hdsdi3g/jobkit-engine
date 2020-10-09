@@ -198,6 +198,10 @@ public class BackgroundService {
 		return this;
 	}
 
+	protected synchronized void setInternalTimedInterval(final Duration duration) {
+		timedInterval = duration.toMillis();
+	}
+
 	public synchronized Duration getTimedIntervalDuration() {
 		return Duration.ofMillis(timedInterval);
 	}
@@ -221,6 +225,10 @@ public class BackgroundService {
 		this.retryAfterTimeFactor = retryAfterTimeFactor;
 		event.onChangeRetryAfterTimeFactor(name, spoolName, retryAfterTimeFactor);
 		return this;
+	}
+
+	protected synchronized void setInternalRetryAfterTimeFactor(final double retryAfterTimeFactor) {
+		this.retryAfterTimeFactor = retryAfterTimeFactor;
 	}
 
 	public synchronized double getRetryAfterTimeFactor() {

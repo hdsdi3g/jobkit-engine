@@ -27,6 +27,13 @@ public class JobKitEngine implements JobTrait {
 		backgroundServices = new ConcurrentHashMap<>();
 	}
 
+	protected JobKitEngine() {
+		scheduledExecutor = null;
+		backgroundServiceEvent = null;
+		spooler = null;
+		backgroundServices = null;
+	}
+
 	/**
 	 * @return true if the task is queued
 	 */
