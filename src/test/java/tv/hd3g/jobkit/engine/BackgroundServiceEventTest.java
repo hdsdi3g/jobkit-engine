@@ -39,7 +39,7 @@ class BackgroundServiceEventTest {
 	void init() {
 		MockitoAnnotations.initMocks(this);
 
-		interval = 1l;
+		interval = 10l;
 		scheduledExecutorService = Executors.newScheduledThreadPool(1);
 		latch = new CountDownLatch(1);
 		name = String.valueOf(System.nanoTime());

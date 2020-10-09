@@ -5,15 +5,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.time.Duration;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import org.junit.jupiter.api.AfterAll;
@@ -42,6 +43,7 @@ class JobKitEngineTest {
 	String name;
 	String spoolName;
 	JobKitEngine jobKitEngine;
+	Spooler spooler;
 
 	@BeforeEach
 	void init() {
@@ -49,6 +51,7 @@ class JobKitEngineTest {
 		name = String.valueOf(random.nextLong());
 		spoolName = String.valueOf(random.nextLong());
 		jobKitEngine = new JobKitEngine(scheduledExecutor, executionEvent, backgroundServiceEvent);
+		spooler = jobKitEngine.getSpooler();
 	}
 
 	@AfterEach
@@ -62,10 +65,13 @@ class JobKitEngineTest {
 	}
 
 	@Test
-	void testRunOneShot() throws InterruptedException {
+	void testRunOneShot() {
 		assertTrue(jobKitEngine.runOneShot(name, spoolName, 0, task, afterRunCommand));
 
-		Thread.sleep(10);// NOSONAR
+		while (spooler.getRunningQueuesCount() > 0) {
+			Thread.onSpinWait();
+		}
+
 		verify(task, times(1)).run();
 		verify(afterRunCommand, times(1)).accept(isNull());
 	}
@@ -80,27 +86,39 @@ class JobKitEngineTest {
 	}
 
 	@Test
-	void testStartServiceStringStringLongTimeUnitRunnable() throws InterruptedException {
+	void testStartServiceStringStringLongTimeUnitRunnable() throws Exception {
+		final var i = new AtomicInteger();
+		task = () -> i.getAndIncrement();
+
 		final var s = jobKitEngine.startService(name, spoolName, 1, TimeUnit.MILLISECONDS, task);
 		assertNotNull(s);
 		assertTrue(s.isEnabled());
 		assertEquals(0, s.getPriority());
 		assertEquals(1, s.getTimedInterval(TimeUnit.MILLISECONDS));
 
-		Thread.sleep(10);// NOSONAR
-		verify(task, atLeastOnce()).run();
+		CompletableFuture.runAsync(() -> {
+			while (i.get() == 0) {
+				Thread.onSpinWait();
+			}
+		}).get(1, TimeUnit.SECONDS);
 	}
 
 	@Test
-	void testStartServiceStringStringDurationRunnable() throws InterruptedException {
+	void testStartServiceStringStringDurationRunnable() throws Exception {
+		final var i = new AtomicInteger();
+		task = () -> i.getAndIncrement();
+
 		final var s = jobKitEngine.startService(name, spoolName, Duration.ofMillis(1), task);
 		assertNotNull(s);
 		assertTrue(s.isEnabled());
 		assertEquals(0, s.getPriority());
 		assertEquals(1, s.getTimedInterval(TimeUnit.MILLISECONDS));
 
-		Thread.sleep(10);// NOSONAR
-		verify(task, atLeastOnce()).run();
+		CompletableFuture.runAsync(() -> {
+			while (i.get() == 0) {
+				Thread.onSpinWait();
+			}
+		}).get(1, TimeUnit.SECONDS);
 	}
 
 	@Test
