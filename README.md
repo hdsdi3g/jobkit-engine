@@ -1,6 +1,8 @@
 # Jobkit Engine
 
-Execute onetime and scheduled Java jobs with dynamic queues and events. It's a standalone lib in alpha version.
+Execute onetime and scheduled Java jobs with dynamic queues and events. It's a standalone lib.
+
+It has an optional watchfolder: it can found recently added files and directories in local filesystem.
 
 Tested on Windows 10 and Linux. Should be ok on macOS.
 
