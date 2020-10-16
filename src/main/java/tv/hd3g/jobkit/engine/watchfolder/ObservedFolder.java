@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toUnmodifiableSet;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
@@ -48,9 +49,7 @@ public class ObservedFolder {
 	};
 
 	void postConfiguration() {
-		if (activeFolder == null) {
-			throw new NullPointerException("Null active folder");
-		}
+		Objects.requireNonNull(activeFolder, "Null active folder");
 		if (activeFolder.exists() == false) {
 			throw new IORuntimeException("Can't found \"" + activeFolder + "\"");
 		} else if (activeFolder.isDirectory() == false) {
