@@ -21,10 +21,10 @@ import java.util.List;
 
 public interface FolderActivity {
 
-	default void onStartScans(final List<ObservedFolder> observedFolder) {
+	default void onStartScans(final List<? extends ObservedFolder> observedFolder) {
 	}
 
-	default void onStopScans(final List<ObservedFolder> observedFolder) {
+	default void onStopScans(final List<? extends ObservedFolder> observedFolder) {
 	}
 
 	default void onBeforeScan(final ObservedFolder observedFolder) {

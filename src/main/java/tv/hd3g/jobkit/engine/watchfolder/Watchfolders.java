@@ -36,7 +36,7 @@ import tv.hd3g.jobkit.engine.JobKitEngine;
 public class Watchfolders {
 	private static final Logger log = LogManager.getLogger();
 
-	private final List<ObservedFolder> observedFolders;
+	private final List<? extends ObservedFolder> observedFolders;
 	private final FolderActivity activity;
 	private final Duration timeBetweenScans;
 	private final JobKitEngine jobKitEngine;
@@ -46,7 +46,7 @@ public class Watchfolders {
 
 	private BackgroundService service;
 
-	public Watchfolders(final List<ObservedFolder> observedFolders,
+	public Watchfolders(final List<? extends ObservedFolder> observedFolders,
 	                    final FolderActivity activity,
 	                    final Duration timeBetweenScans,
 	                    final JobKitEngine jobKitEngine,
