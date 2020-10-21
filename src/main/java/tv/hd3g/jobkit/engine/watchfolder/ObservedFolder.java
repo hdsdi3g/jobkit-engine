@@ -94,6 +94,11 @@ public class ObservedFolder {
 		minFixedStateTime = Optional.ofNullable(minFixedStateTime).orElse(Duration.ZERO);
 	}
 
+	@Override
+	public String toString() {
+		return "\"" + label + "\":" + activeFolder.getPath();
+	}
+
 	public void setLabel(final String label) {
 		this.label = label;
 	}

@@ -72,6 +72,66 @@ class WatchfoldersTest {
 	}
 
 	@Test
+	void testMissingActiveFolder_onBoot() {
+		observedFolder.setActiveFolder(new File("/this/not/exists"));
+		watchfolders = new Watchfolders(List.of(observedFolder), folderActivity,
+		        Duration.ofMillis(1), jobKitEngine, "default", "default", () -> watchedFilesDb);
+
+		verify(folderActivity, times(1)).onBootInvalidActiveFolders(eq(List.of(observedFolder)));
+		verify(folderActivity, times(0)).onBeforeScanInvalidActiveFolder(any(ObservedFolder.class));
+
+		assertTrue(jobKitEngine.isEmptyActiveServicesList());
+		watchfolders.startScans();
+		jobKitEngine.runAllServicesOnce();
+
+		assertFalse(jobKitEngine.isEmptyActiveServicesList());
+		verify(folderActivity, times(1)).onBootInvalidActiveFolders(eq(List.of(observedFolder)));
+		verify(folderActivity, times(0)).onBeforeScanInvalidActiveFolder(any(ObservedFolder.class));
+
+		/**
+		 * Back to normal
+		 */
+		observedFolder.setActiveFolder(new File("."));
+		jobKitEngine.runAllServicesOnce();
+		verify(folderActivity, times(1)).onStartScans(eq(List.of(observedFolder)));
+		verify(folderActivity, times(1)).onBootInvalidActiveFolders(eq(List.of(observedFolder)));
+		verify(folderActivity, times(0)).onBeforeScanInvalidActiveFolder(eq(observedFolder));
+	}
+
+	@Test
+	void testMissingActiveFolder_duringRun() {
+		watchfolders = new Watchfolders(List.of(observedFolder), folderActivity,
+		        Duration.ofMillis(1), jobKitEngine, "default", "default", () -> watchedFilesDb);
+
+		verify(folderActivity, times(0)).onBootInvalidActiveFolders(eq(List.of(observedFolder)));
+		verify(folderActivity, times(0)).onBeforeScanInvalidActiveFolder(any(ObservedFolder.class));
+
+		observedFolder.setActiveFolder(new File("/this/not/exists"));
+		assertTrue(jobKitEngine.isEmptyActiveServicesList());
+		watchfolders.startScans();
+		jobKitEngine.runAllServicesOnce();
+
+		assertFalse(jobKitEngine.isEmptyActiveServicesList());
+		verify(folderActivity, times(0)).onBootInvalidActiveFolders(eq(List.of(observedFolder)));
+		verify(folderActivity, times(1)).onBeforeScanInvalidActiveFolder(eq(observedFolder));
+
+		jobKitEngine.runAllServicesOnce();
+
+		assertFalse(jobKitEngine.isEmptyActiveServicesList());
+		verify(folderActivity, times(0)).onBootInvalidActiveFolders(eq(List.of(observedFolder)));
+		verify(folderActivity, times(1)).onBeforeScanInvalidActiveFolder(eq(observedFolder));
+
+		/**
+		 * Back to normal
+		 */
+		observedFolder.setActiveFolder(new File("."));
+		jobKitEngine.runAllServicesOnce();
+		verify(folderActivity, times(1)).onStartScans(eq(List.of(observedFolder)));
+		verify(folderActivity, times(0)).onBootInvalidActiveFolders(eq(List.of(observedFolder)));
+		verify(folderActivity, times(1)).onBeforeScanInvalidActiveFolder(eq(observedFolder));
+	}
+
+	@Test
 	void testStartStopScans() {
 		watchfolders = new Watchfolders(List.of(observedFolder), folderActivity,
 		        Duration.ofMillis(1), jobKitEngine, "default", "default", () -> watchedFilesDb);
@@ -118,6 +178,9 @@ class WatchfoldersTest {
 		verify(watchedFilesDb, times(2)).update();
 		verify(folderActivity, times(2)).onAfterScan(eq(observedFolder), any(Duration.class), eq(watchedFiles));
 		verify(folderActivity, times(2)).onStopScans(eq(List.of(observedFolder)));
+
+		verify(folderActivity, times(0)).onBootInvalidActiveFolders(any());
+		verify(folderActivity, times(0)).onBeforeScanInvalidActiveFolder(any(ObservedFolder.class));
 	}
 
 	@Test
