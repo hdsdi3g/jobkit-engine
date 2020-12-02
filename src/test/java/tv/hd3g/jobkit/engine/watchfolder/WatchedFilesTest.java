@@ -18,7 +18,6 @@ package tv.hd3g.jobkit.engine.watchfolder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.io.File;
 import java.util.Random;
 import java.util.Set;
 
@@ -27,12 +26,14 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import tv.hd3g.transfertfiles.CachedFileAttributes;
+
 class WatchedFilesTest {
 
 	@Mock
-	Set<File> founded;
+	Set<CachedFileAttributes> founded;
 	@Mock
-	Set<File> losted;
+	Set<CachedFileAttributes> losted;
 	int totalFiles;
 
 	WatchedFiles watchedFiles;

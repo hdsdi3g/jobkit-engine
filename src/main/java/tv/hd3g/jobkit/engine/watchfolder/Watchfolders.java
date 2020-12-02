@@ -20,20 +20,22 @@ import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
+import java.io.IOException;
 import java.time.Duration;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import tv.hd3g.commons.IORuntimeException;
 import tv.hd3g.jobkit.engine.BackgroundService;
 import tv.hd3g.jobkit.engine.JobKitEngine;
 
@@ -47,7 +49,7 @@ public class Watchfolders {
 	private final String spoolScans;
 	private final String spoolEvents;
 	private final Map<ObservedFolder, WatchedFilesDb> wfDBForFolder;
-	private final Set<ObservedFolder> missingObservedFolders;
+	private final Map<ObservedFolder, BackgroundService> onErrorObservedFolders;
 
 	private BackgroundService service;
 
@@ -64,7 +66,7 @@ public class Watchfolders {
 		this.jobKitEngine = Objects.requireNonNull(jobKitEngine);
 		this.spoolScans = Objects.requireNonNull(spoolScans);
 		this.spoolEvents = Objects.requireNonNull(spoolEvents);
-		missingObservedFolders = Collections.synchronizedSet(new HashSet<>());
+		onErrorObservedFolders = new ConcurrentHashMap<>();
 		Objects.requireNonNull(watchedFilesDbBuilder);
 
 		if (observedFolders.isEmpty()) {
@@ -79,20 +81,6 @@ public class Watchfolders {
 			                watchedFilesDb.setup(observedFolder, pickUp);
 			                return watchedFilesDb;
 		                }));
-
-		jobKitEngine.runOneShot("Check input directories presence for watchfolders", spoolEvents, 0,
-		        () -> {
-			        final var list = observedFolders.stream().filter(oF -> {
-				        final var aF = oF.getActiveFolder();
-				        return aF.exists() == false || aF.isDirectory() == false;
-			        }).collect(toUnmodifiableList());
-
-			        if (list.isEmpty() == false) {
-				        log.warn("Can't found declared root dir: {}", list);
-				        eventActivity.onBootInvalidActiveFolders(list);
-				        missingObservedFolders.addAll(list);
-			        }
-		        }, onOneShotError);
 	}
 
 	private final Consumer<Exception> onOneShotError = e -> {
@@ -102,33 +90,22 @@ public class Watchfolders {
 	};
 
 	private void internalScan(final ObservedFolder folder) {
-		final var activeFolder = folder.getActiveFolder();
-		final var label = folder.getLabel();
+		try (var fs = folder.createFileSystem()) {
+			final var label = folder.getLabel();
 
-		if (activeFolder.exists() == false || activeFolder.isDirectory() == false) {
-			if (missingObservedFolders.contains(folder) == false) {
-				missingObservedFolders.add(folder);
-				jobKitEngine.runOneShot("Can't found watchfolder " + label, spoolEvents, 0,
-				        () -> eventActivity.onBeforeScanInvalidActiveFolder(folder), onOneShotError);
-				log.warn("Can't found watchfolder {} :: {}, cancel scans for it", label, activeFolder);
-			}
-			return;
+			log.trace("Start Watchfolder scan for {} :: {}", label, fs);
+			jobKitEngine.runOneShot("Watchfolder start dir scan for " + label, spoolEvents, 0,
+			        () -> eventActivity.onBeforeScan(folder), onOneShotError);
+			final var startTime = System.currentTimeMillis();
+			final var scanResult = wfDBForFolder.get(folder).update(fs);
+			final var scanTime = Duration.of(System.currentTimeMillis() - startTime, MILLIS);
+
+			jobKitEngine.runOneShot("On event on watchfolder scan for " + getWFName(), spoolEvents, 0,
+			        () -> eventActivity.onAfterScan(folder, scanTime, scanResult), onOneShotError);
+			log.trace("Ends Watchfolder scan for {} :: {}", label, fs);
+		} catch (final IOException e) {
+			throw new IORuntimeException(e);
 		}
-		final var getBackWF = missingObservedFolders.remove(folder);
-		if (getBackWF) {
-			log.info("Get back watchfolder root directory: {} :: {}", label, activeFolder);
-		}
-
-		log.trace("Start Watchfolder scan for {} :: {}", label, activeFolder);
-		jobKitEngine.runOneShot("Watchfolder start dir scan for " + label, spoolEvents, 0,
-		        () -> eventActivity.onBeforeScan(folder), onOneShotError);
-		final var startTime = System.currentTimeMillis();
-		final var scanResult = wfDBForFolder.get(folder).update();
-		final var scanTime = Duration.of(System.currentTimeMillis() - startTime, MILLIS);
-
-		jobKitEngine.runOneShot("On event on watchfolder scan for " + getWFName(), spoolEvents, 0,
-		        () -> eventActivity.onAfterScan(folder, scanTime, scanResult), onOneShotError);
-		log.trace("Ends Watchfolder scan for {} :: {}", label, activeFolder);
 	}
 
 	private String getWFName() {
@@ -144,9 +121,25 @@ public class Watchfolders {
 		service = jobKitEngine.createService("Watchfolder for " + getWFName(), spoolScans, () -> {
 			log.trace("Start full Watchfolders scans for {}", getWFName());
 			final var startTime = System.currentTimeMillis();
-			observedFolders.forEach(this::internalScan);
-			log.trace("Ends full Watchfolders scans for {} ({} ms)",
-			        getWFName(), System.currentTimeMillis() - startTime);
+
+			final var newInError = observedFolders.stream()
+			        .filter(Predicate.not(onErrorObservedFolders::containsKey))
+			        .filter(oF -> {
+				        try {
+					        internalScan(oF);
+					        return false;
+				        } catch (final IORuntimeException e) {
+					        log.error("Problem during scan with {}, cancel scans for it", oF.getLabel(), e);
+					        jobKitEngine.runOneShot("Problem during scan with watchfolder " + oF.getLabel(),
+					                spoolEvents, 0,
+					                () -> eventActivity.onScanErrorFolder(oF), onOneShotError);
+					        return true;
+				        }
+			        }).collect(toUnmodifiableList());
+
+			log.trace("Ends full Watchfolders scans for {} ({} ms) - {} in error",
+			        getWFName(), System.currentTimeMillis() - startTime, newInError.size());
+			retryInError(newInError);
 		});
 		service.setTimedInterval(timeBetweenScans);
 		service.setRetryAfterTimeFactor(10);
@@ -181,6 +174,33 @@ public class Watchfolders {
 			        service.disable();
 		        });
 		service = null;
+	}
+
+	private BackgroundService retryInError(final ObservedFolder newInError) {
+		return jobKitEngine.createService("Retry for watchfolders in error " + getWFName(),
+		        spoolScans, () -> {
+			        final var label = newInError.getLabel();
+			        log.info("Retry to establish a connection to {}...", label);
+			        try (var fs = newInError.createFileSystem()) {
+				        fs.getRootPath().toCachedList().count();
+			        } catch (final IOException e) {
+				        throw new IORuntimeException(e);
+			        }
+			        log.info("Connection is ok. Back to normal for {}", label);
+			        Optional.ofNullable(onErrorObservedFolders.remove(newInError))
+			                .ifPresent(BackgroundService::disable);
+		        });
+	}
+
+	private void retryInError(final List<? extends ObservedFolder> newInError) {
+		newInError.forEach(oF -> {
+			final var serviceRetry = retryInError(oF);
+			serviceRetry.setTimedInterval(timeBetweenScans);
+			serviceRetry.setRetryAfterTimeFactor(10);
+			serviceRetry.setPriority(service.getPriority() - 1);
+			onErrorObservedFolders.put(oF, service);
+			serviceRetry.enable();
+		});
 	}
 
 }

@@ -16,26 +16,27 @@
  */
 package tv.hd3g.jobkit.engine.watchfolder;
 
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.commons.io.FilenameUtils.getExtension;
+import static tv.hd3g.jobkit.engine.watchfolder.WatchFolderPickupType.FILES_DIRS;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.function.Predicate;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import tv.hd3g.commons.IORuntimeException;
+import tv.hd3g.transfertfiles.AbstractFile;
+import tv.hd3g.transfertfiles.AbstractFileSystemURL;
+import tv.hd3g.transfertfiles.CachedFileAttributes;
 
 /**
  * Not thread safe
@@ -43,13 +44,11 @@ import org.apache.logging.log4j.Logger;
 public class WatchedFilesInMemoryDb implements WatchedFilesDb {
 	private static final Logger log = LogManager.getLogger();
 
-	private final Map<File, WatchedFile> allWatchedFiles;
+	private final Map<CachedFileAttributes, WatchedFileInMemoryDb> allWatchedFiles;
 
 	private int maxDeep;
 	private ObservedFolder observedFolder;
-	private int rootFolderPathSize;
-	private boolean pickUpFiles;
-	private boolean pickUpDirs;
+	private WatchFolderPickupType pickUp;
 	private Duration minFixedStateTime;
 
 	public WatchedFilesInMemoryDb() {
@@ -69,136 +68,98 @@ public class WatchedFilesInMemoryDb implements WatchedFilesDb {
 	public void setup(final ObservedFolder observedFolder, final WatchFolderPickupType pickUp) {
 		this.observedFolder = observedFolder;
 		observedFolder.postConfiguration();
-		pickUpFiles = pickUp.isPickUpFiles();
-		pickUpDirs = pickUp.isPickUpDirs();
+		this.pickUp = pickUp;
 		minFixedStateTime = observedFolder.getMinFixedStateTime();
-		rootFolderPathSize = observedFolder.getActiveFolder().getAbsolutePath().length();
-
+		try (var fs = observedFolder.createFileSystem()) {
+			/** try only to load FileSystem/configured URL */
+		} catch (final IOException e) {
+			throw new IORuntimeException("Can't load FileSystem", e);
+		}
 		if (observedFolder.isRecursive() == false) {
 			maxDeep = 0;
 		}
-		log.debug("Setup WFDB for {}, pickUpFiles: {}, pickUpDirs: {}, minFixedStateTime: {}, maxDeep: {}",
-		        observedFolder.getLabel(), pickUpFiles, pickUpDirs, minFixedStateTime, maxDeep);
-	}
-
-	private class WatchedFile {
-		final File file;
-		final boolean isDirectory;
-		long lastWatched;
-		long lastDate;
-		long lastSize;
-		boolean founded;
-		boolean justCreated;
-
-		WatchedFile(final File file) {
-			this.file = file;
-			isDirectory = file.isDirectory();
-			lastWatched = System.currentTimeMillis();
-			lastDate = file.lastModified();
-			lastSize = file.length();
-			justCreated = true;
-			founded = isDirectory && pickUpDirs == false || isDirectory == false && pickUpFiles == false;
-
-			log.trace("Create WatchedFile for {}", file);
-		}
-
-		boolean updateAndIsNotToRecentScan() {
-			if (justCreated) {
-				justCreated = false;
-				return false;
-			}
-			return lastWatched < System.currentTimeMillis() - minFixedStateTime.toMillis();
-		}
-
-		boolean isNotFounded() {
-			return founded == false;
-		}
-
-		boolean notExists() {
-			return file.exists() == false;
-		}
-
-		void setFounded() {
-			founded = true;
-		}
-
-		boolean isValidatedAfterUpdate() {
-			if (isDirectory) {
-				return true;
-			}
-
-			final var same = lastDate == file.lastModified() && lastSize == file.length();
-			if (same == false) {
-				lastDate = file.lastModified();
-				lastSize = file.length();
-				lastWatched = System.currentTimeMillis();
-				founded = false;
-			}
-			log.trace("isValidatedAfterUpdate {}: {}", same, file);
-			return same;
-		}
-
+		log.debug("Setup WFDB for {}, pickUp: {}, minFixedStateTime: {}, maxDeep: {}",
+		        observedFolder.getLabel(), pickUp, minFixedStateTime, maxDeep);
 	}
 
 	@Override
-	public WatchedFiles update() {
-		final var detected = new HashSet<File>();
-		actualScan(observedFolder.getActiveFolder(), maxDeep, detected);
+	public WatchedFiles update(final AbstractFileSystemURL fileSystem) {
+		final var detected = new HashSet<CachedFileAttributes>();
+		actualScan(fileSystem.getRootPath(), maxDeep, detected);
 
-		final var allFounded = detected.stream()
-		        .map(fD -> allWatchedFiles.computeIfAbsent(fD, WatchedFile::new))
-		        .filter(WatchedFile::isNotFounded)
-		        .filter(WatchedFile::updateAndIsNotToRecentScan)
-		        .filter(WatchedFile::isValidatedAfterUpdate)
-		        .filter(wf -> wf.file.isDirectory() && pickUpDirs
-		                      || wf.file.isDirectory() == false && pickUpFiles)
-		        .map(wf -> wf.file)
+		/**
+		 * update all founded
+		 */
+		final var updateFounded = detected.stream()
+		        .filter(allWatchedFiles::containsKey)
+		        .map(f -> allWatchedFiles.get(f).update(f))
+		        .collect(toUnmodifiableList());
+		log.trace("List updateFounded={}", updateFounded);
+
+		/**
+		 * get qualified, set them marked
+		 */
+		final var qualifyFounded = updateFounded.stream()
+		        .filter(WatchedFileInMemoryDb::isNotYetMarkedAsDone)
+		        .filter(WatchedFileInMemoryDb::isQualified)
+		        .map(WatchedFileInMemoryDb::setMarkedAsDone)
+		        .collect(toUnmodifiableList());
+		log.trace("List qualifyFounded={}", qualifyFounded);
+
+		/**
+		 * get only them can be callbacked
+		 */
+		final var qualifiedAndCallbacked = qualifyFounded.stream()
+		        .filter(WatchedFileInMemoryDb::canBeCallbacked)
+		        .map(WatchedFileInMemoryDb::getLastFile)
 		        .collect(toUnmodifiableSet());
+		log.trace("List qualifiedAndCallbacked={}", qualifiedAndCallbacked);
 
-		final var allLosted = allWatchedFiles.values().stream()
-		        .filter(WatchedFile::notExists)
-		        .filter(wf -> wf.file.isDirectory() && pickUpDirs
-		                      || wf.file.isDirectory() == false && pickUpFiles)
-		        .filter(WatchedFile::isNotFounded)
-		        .map(wf -> wf.file)
+		final var losted = allWatchedFiles.values().stream()
+		        .filter(WatchedFileInMemoryDb::isNotYetMarkedAsDone)
+		        .filter(w -> w.absentInSet(detected))
+		        .collect(toUnmodifiableList());
+
+		final var lostedAndCallbacked = losted.stream()
+		        .filter(WatchedFileInMemoryDb::canBePickup)
+		        .map(WatchedFileInMemoryDb::getLastFile)
 		        .collect(toUnmodifiableSet());
 
 		/**
-		 * Update internal list
+		 * Add new files
 		 */
-		allFounded.stream()
-		        .map(allWatchedFiles::get)
-		        .forEach(WatchedFile::setFounded);
+		detected.stream()
+		        .filter(Predicate.not(allWatchedFiles::containsKey))
+		        .forEach(f -> allWatchedFiles.put(f, new WatchedFileInMemoryDb(f, pickUp, minFixedStateTime)));
+
 		/**
 		 * Clean deleted files
 		 */
-		allWatchedFiles.values().stream()
-		        .filter(WatchedFile::notExists)
+		allWatchedFiles.keySet().stream()
+		        .filter(Predicate.not(detected::contains))
 		        .collect(toUnmodifiableList())
-		        .forEach(wf -> allWatchedFiles.remove(wf.file));
+		        .forEach(allWatchedFiles::remove);
 
 		int size;
-		if (pickUpDirs && pickUpFiles) {
+		if (pickUp == FILES_DIRS) {
 			size = allWatchedFiles.size();
 		} else {
-			size = (int) allWatchedFiles.values()
-			        .stream()
-			        .filter(wf -> wf.file.isDirectory() && pickUpDirs
-			                      || wf.file.isDirectory() == false && pickUpFiles)
+			size = (int) allWatchedFiles.values().stream()
+			        .filter(WatchedFileInMemoryDb::canBePickup)
 			        .count();
 		}
 
 		log.debug("Scan result for {}: {} founded, {} lost, {} total",
-		        observedFolder.getLabel(), allFounded.size(), allLosted.size(), size);
-		return new WatchedFiles(allFounded, allLosted, size);
+		        observedFolder.getLabel(), qualifiedAndCallbacked.size(), lostedAndCallbacked.size(), size);
+		return new WatchedFiles(qualifiedAndCallbacked, lostedAndCallbacked, size);
 	}
 
 	/**
 	 * Recursive
 	 */
-	private void actualScan(final File source, final int deep, final Set<File> detected) {
-		final var actualFiles = List.of(source.listFiles());
-
+	private void actualScan(final AbstractFile aSource,
+	                        final int deep,
+	                        final Set<CachedFileAttributes> detected) {
 		final var ignoreFiles = observedFolder.getIgnoreFiles();
 		final var allowedHidden = observedFolder.isAllowedHidden();
 		final var allowedLinks = observedFolder.isAllowedLinks();
@@ -206,11 +167,11 @@ public class WatchedFilesInMemoryDb implements WatchedFilesDb {
 		final var blockedExtentions = observedFolder.getBlockedExtentions();
 		final var ignoreRelativePaths = observedFolder.getIgnoreRelativePaths();
 
-		final var result = actualFiles.stream()
-		        .filter(File::canRead)
+		final var result = aSource.toCachedList()
+		        .peek(f -> log.trace("Detect file={}", f))// NOSONAR S3864
 		        .filter(f -> ignoreFiles.contains(f.getName().toLowerCase()) == false)
 		        .filter(f -> (allowedHidden == false && (f.isHidden() || f.getName().startsWith("."))) == false)
-		        .filter(f -> (allowedLinks == false && FileUtils.isSymlink(f)) == false)
+		        .filter(f -> (allowedLinks == false && f.isLink()) == false)
 		        .filter(f -> {
 			        if (f.isDirectory()) {
 				        return true;
@@ -229,37 +190,23 @@ public class WatchedFilesInMemoryDb implements WatchedFilesDb {
 			        if (ignoreRelativePaths.isEmpty()) {
 				        return true;
 			        }
-			        final var relativePath = f.getAbsolutePath()
-			                .substring(rootFolderPathSize + 1)
-			                .replace('\\', '/');
-			        return ignoreRelativePaths.contains(relativePath) == false;
+			        return ignoreRelativePaths.contains(f.getPath()) == false;
 		        })
-		        .filter(f -> {
-			        if (f.isDirectory()) {
-				        return true;
-			        }
-			        try {
-				        return Optional.ofNullable(Files.readAttributes(source.toPath(), BasicFileAttributes.class))
-				                .map(BasicFileAttributes::isOther)
-				                .orElse(false) == false;
-			        } catch (final IOException e) {
-				        log.trace("Can't access to BasicFileAttributes for {}", source, e);
-			        }
-			        return true;
-		        })
-		        .collect(Collectors.toUnmodifiableList());
+		        .filter(f -> f.isDirectory() || f.isSpecial() == false)
+		        .collect(toUnmodifiableList());
 
 		detected.addAll(result);
 
-		log.trace(() -> "Scanned files/dirs for \"" + source + "\" (deep " + deep + "): "
+		log.debug(() -> "Scanned files/dirs for \"" + aSource.getPath() + "\" (deep " + deep + "): "
 		                + result.stream()
-		                        .map(File::getName)
+		                        .map(CachedFileAttributes::getName)
 		                        .sorted()
-		                        .collect(Collectors.joining(", ")));
+		                        .collect(joining(", "))
+		                + " on \"" + aSource.getFileSystem().toString() + "\"");
 		if (deep > 0) {
 			result.stream()
-			        .filter(File::isDirectory)
-			        .forEach(f -> actualScan(f, deep - 1, detected));
+			        .filter(CachedFileAttributes::isDirectory)
+			        .forEach(f -> actualScan(f.getAbstractFile(), deep - 1, detected));
 		}
 	}
 

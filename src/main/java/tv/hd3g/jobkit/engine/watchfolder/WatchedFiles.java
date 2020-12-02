@@ -16,13 +16,14 @@
  */
 package tv.hd3g.jobkit.engine.watchfolder;
 
-import java.io.File;
 import java.util.Set;
+
+import tv.hd3g.transfertfiles.CachedFileAttributes;
 
 public class WatchedFiles {
 
-	private final Set<File> founded;
-	private final Set<File> losted;
+	private final Set<CachedFileAttributes> founded;
+	private final Set<CachedFileAttributes> losted;
 	private final int totalFiles;
 
 	/**
@@ -30,17 +31,19 @@ public class WatchedFiles {
 	 * @param losted file/dir removed before validation on scanned folder
 	 * @return totalFiles total file/dir count on scanned folder (valided)
 	 */
-	public WatchedFiles(final Set<File> founded, final Set<File> losted, final int totalFiles) {
+	public WatchedFiles(final Set<CachedFileAttributes> founded,
+	                    final Set<CachedFileAttributes> losted,
+	                    final int totalFiles) {
 		this.founded = founded;
 		this.losted = losted;
 		this.totalFiles = totalFiles;
 	}
 
-	public Set<File> getFounded() {
+	public Set<CachedFileAttributes> getFounded() {
 		return founded;
 	}
 
-	public Set<File> getLosted() {
+	public Set<CachedFileAttributes> getLosted() {
 		return losted;
 	}
 

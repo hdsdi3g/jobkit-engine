@@ -17,6 +17,7 @@
 package tv.hd3g.jobkit.engine.watchfolder;
 
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static tv.hd3g.transfertfiles.AbstractFile.normalizePath;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,10 +28,12 @@ import java.util.Set;
 import java.util.function.UnaryOperator;
 
 import tv.hd3g.commons.IORuntimeException;
+import tv.hd3g.transfertfiles.AbstractFile;
+import tv.hd3g.transfertfiles.AbstractFileSystemURL;
 
 public class ObservedFolder {
 
-	private File activeFolder;
+	private String targetFolder;
 	private String label;
 	private Set<String> allowedExtentions;
 	private Set<String> blockedExtentions;
@@ -49,22 +52,25 @@ public class ObservedFolder {
 	};
 
 	void postConfiguration() {
-		Objects.requireNonNull(activeFolder, "Null active folder");
-		if (activeFolder.exists() == false) {
-			throw new IORuntimeException("Can't found \"" + activeFolder + "\"");
-		} else if (activeFolder.isDirectory() == false) {
-			throw new IORuntimeException("Entry is not a Directory: \"" + activeFolder + "\"");
-		} else if (activeFolder.canRead() == false) {
-			throw new IORuntimeException("Can't read: \"" + activeFolder + "\"");
-		}
+		Objects.requireNonNull(targetFolder, "Null targetFolder");
 		try {
-			activeFolder = activeFolder.getCanonicalFile().getAbsoluteFile();
-		} catch (final IOException e) {
-			throw new IORuntimeException(e);
-		}
+			final var targetFolderF = new File(targetFolder);
+			AbstractFileSystemURL checkParse;
+			if (targetFolderF.exists()) {
+				final var newTargetFolder = "file://localhost" + normalizePath(targetFolderF.getCanonicalFile()
+				        .getAbsolutePath());
+				checkParse = new AbstractFileSystemURL(newTargetFolder);
+				targetFolder = newTargetFolder;
+			} else {
+				checkParse = new AbstractFileSystemURL(targetFolder);
+			}
+			checkParse.close();
 
-		if (label == null || label.isEmpty()) {
-			label = activeFolder.getName();
+			if (label == null || label.isEmpty()) {
+				label = checkParse.toString();
+			}
+		} catch (final IOException e1) {
+			throw new IORuntimeException("Can't load: \"" + targetFolder + "\"");
 		}
 
 		allowedExtentions = Optional.ofNullable(allowedExtentions).orElse(Set.of()).stream()
@@ -78,12 +84,8 @@ public class ObservedFolder {
 		        .distinct()
 		        .collect(toUnmodifiableSet());
 		ignoreRelativePaths = Optional.ofNullable(ignoreRelativePaths).orElse(Set.of()).stream()
-		        .map(path -> {
-			        if (path.startsWith("/") || path.startsWith("\\")) {
-				        return path.substring(1).replace('\\', '/');
-			        }
-			        return path.replace('\\', '/');
-		        })
+		        .map(path -> path.replace('\\', '/'))
+		        .map(AbstractFile::normalizePath)
 		        .distinct()
 		        .collect(toUnmodifiableSet());
 
@@ -96,7 +98,7 @@ public class ObservedFolder {
 
 	@Override
 	public String toString() {
-		return "\"" + label + "\":" + activeFolder.getPath();
+		return label;
 	}
 
 	public void setLabel(final String label) {
@@ -107,12 +109,16 @@ public class ObservedFolder {
 		return label;
 	}
 
-	public File getActiveFolder() {
-		return activeFolder;
+	public String getTargetFolder() {
+		return targetFolder;
 	}
 
-	public void setActiveFolder(final File activeFolder) {
-		this.activeFolder = activeFolder;
+	public AbstractFileSystemURL createFileSystem() {
+		return new AbstractFileSystemURL(targetFolder);
+	}
+
+	public void setTargetFolder(final String targetFolder) {
+		this.targetFolder = targetFolder;
 	}
 
 	public Set<String> getAllowedExtentions() {

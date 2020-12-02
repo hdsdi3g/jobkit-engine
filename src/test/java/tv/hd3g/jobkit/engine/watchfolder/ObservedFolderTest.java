@@ -31,10 +31,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import tv.hd3g.commons.IORuntimeException;
+import tv.hd3g.transfertfiles.ftp.FTPFileSystem;
 
 class ObservedFolderTest {
 
-	File activeFolder;
+	String targetFolder;
 	String label;
 	Set<String> allowedExtentions;
 	Set<String> blockedExtentions;
@@ -46,7 +47,7 @@ class ObservedFolderTest {
 
 	@BeforeEach
 	void init() {
-		activeFolder = new File(".");
+		targetFolder = new File("").getAbsolutePath();
 		label = "lbl-" + String.valueOf(Math.abs(System.nanoTime()));
 		allowedExtentions = Set.of(".ok", "gO");
 		blockedExtentions = Set.of("no", ".nEver");
@@ -59,7 +60,7 @@ class ObservedFolderTest {
 
 	@Test
 	void testPostConfiguration() {
-		observedFolder.setActiveFolder(activeFolder);
+		observedFolder.setTargetFolder(targetFolder);
 		observedFolder.setAllowedExtentions(allowedExtentions);
 		observedFolder.setBlockedExtentions(blockedExtentions);
 		observedFolder.setIgnoreFiles(ignoreFiles);
@@ -69,22 +70,22 @@ class ObservedFolderTest {
 
 		assertEquals(Set.of("ok", "go"), observedFolder.getAllowedExtentions());
 		assertEquals(Set.of("no", "never"), observedFolder.getBlockedExtentions());
-		assertEquals(Set.of("never/here", "nope/dir"), observedFolder.getIgnoreRelativePaths());
+		assertEquals(Set.of("/never/here", "/nope/dir"), observedFolder.getIgnoreRelativePaths());
 		assertEquals(Set.of("desktop.ini", ".ds_store"), observedFolder.getIgnoreFiles());
 	}
 
 	@Test
 	void testPostConfiguration_errors() {
 		assertThrows(NullPointerException.class, () -> observedFolder.postConfiguration());
-		observedFolder.setActiveFolder(new File("/" + String.valueOf(System.nanoTime())));
+		observedFolder.setTargetFolder(new File("/" + String.valueOf(System.nanoTime())).getPath());
 		assertThrows(IORuntimeException.class, () -> observedFolder.postConfiguration());
-		observedFolder.setActiveFolder(new File("pom.xml"));
+		observedFolder.setTargetFolder(new File("pom.xml").getPath());
 		assertThrows(IORuntimeException.class, () -> observedFolder.postConfiguration());
 	}
 
 	@Test
 	void testPostConfiguration_minimal() {
-		observedFolder.setActiveFolder(activeFolder);
+		observedFolder.setTargetFolder(targetFolder);
 		observedFolder.postConfiguration();
 		assertNotNull(observedFolder.getLabel());
 		assertFalse(observedFolder.getLabel().isEmpty());
@@ -94,6 +95,13 @@ class ObservedFolderTest {
 		assertEquals(Set.of(), observedFolder.getIgnoreRelativePaths());
 		assertEquals(Set.of(), observedFolder.getIgnoreFiles());
 		assertEquals(Duration.ZERO, observedFolder.getMinFixedStateTime());
+	}
+
+	@Test
+	void testPostConfiguration_URL() {
+		observedFolder.setTargetFolder("ftp://user@localhost/");
+		observedFolder.postConfiguration();
+		assertTrue(observedFolder.createFileSystem().getFileSystem() instanceof FTPFileSystem);
 	}
 
 	@Test
@@ -108,14 +116,14 @@ class ObservedFolderTest {
 	}
 
 	@Test
-	void testGetActiveFolder() {
-		assertNull(observedFolder.getActiveFolder());
+	void testGetTargetFolder() {
+		assertNull(observedFolder.getTargetFolder());
 	}
 
 	@Test
-	void testSetActiveFolder() {
-		observedFolder.setActiveFolder(activeFolder);
-		assertEquals(activeFolder, observedFolder.getActiveFolder());
+	void testSetTargetFolder() {
+		observedFolder.setTargetFolder(targetFolder);
+		assertEquals(targetFolder, observedFolder.getTargetFolder());
 	}
 
 	@Test

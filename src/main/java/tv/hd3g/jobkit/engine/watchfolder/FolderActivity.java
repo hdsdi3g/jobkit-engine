@@ -38,10 +38,7 @@ public interface FolderActivity {
 	                 final Duration scanTime,
 	                 final WatchedFiles scanResult);
 
-	default void onBootInvalidActiveFolders(final List<? extends ObservedFolder> observedFolder) {
-	}
-
-	default void onBeforeScanInvalidActiveFolder(final ObservedFolder observedFolder) {
+	default void onScanErrorFolder(final ObservedFolder observedFolder) {
 	}
 
 }

@@ -30,6 +30,7 @@ import static tv.hd3g.jobkit.engine.watchfolder.WatchFolderPickupType.FILES_ONLY
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Collection;
 import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
@@ -38,6 +39,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import tv.hd3g.commons.IORuntimeException;
+import tv.hd3g.transfertfiles.AbstractFileSystemURL;
+import tv.hd3g.transfertfiles.CachedFileAttributes;
+import tv.hd3g.transfertfiles.local.LocalFile;
 
 class WatchedFilesInMemoryDbTest {
 
@@ -49,17 +53,20 @@ class WatchedFilesInMemoryDbTest {
 		FileUtils.cleanDirectory(rootDir);
 	}
 
+	File workingFile;
 	ObservedFolder observedFolder;
 	WatchedFilesInMemoryDb watchedFilesDb;
+	AbstractFileSystemURL fs;
 
 	@BeforeEach
 	void init() throws IOException {
 		observedFolder = new ObservedFolder();
-		observedFolder.setActiveFolder(new File(rootDir, String.valueOf(Math.abs(System.nanoTime()))));
-		if (observedFolder.getActiveFolder().exists()) {
-			throw new IOException("Temp dir exists: " + observedFolder.getActiveFolder());
+		workingFile = new File(rootDir, String.valueOf(Math.abs(System.nanoTime())));
+		observedFolder.setTargetFolder("file://localhost/" + workingFile.getAbsolutePath());
+		if (workingFile.exists()) {
+			throw new IOException("Temp dir exists: " + workingFile);
 		}
-		FileUtils.forceMkdir(observedFolder.getActiveFolder());
+		FileUtils.forceMkdir(workingFile);
 
 		observedFolder.setLabel("test");
 		observedFolder.setAllowedExtentions(Set.of("ok"));
@@ -68,27 +75,28 @@ class WatchedFilesInMemoryDbTest {
 		observedFolder.setIgnoreFiles(Set.of("desktop.ini", ".DS_Store", "ignoreme.ok"));
 
 		watchedFilesDb = new WatchedFilesInMemoryDb();
+		fs = observedFolder.createFileSystem();
 	}
 
 	@Test
 	void testUpdate_found() {
 		watchedFilesDb.setup(observedFolder, FILES_ONLY);
-		var w = watchedFilesDb.update();
+		var w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 0);
 
 		write("thisfine.ok", "thisnotfine.no", "/whysubdir/thisfine.ok", "ignoreme.ok");
 
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 1);
 
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of("thisfine.ok"), Set.of(), 1);
 
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 1);
 
 		delete("thisfine.ok");
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 0);
 	}
 
@@ -97,18 +105,18 @@ class WatchedFilesInMemoryDbTest {
 		watchedFilesDb.setup(observedFolder, FILES_ONLY);
 
 		write("thisfine2.ok");
-		var w = watchedFilesDb.update();
+		var w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 1);
 
 		write("thisfine2.ok");
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 1);
 
 		write("thisfine2.ok");
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 1);
 
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of("thisfine2.ok"), Set.of(), 1);
 	}
 
@@ -117,20 +125,20 @@ class WatchedFilesInMemoryDbTest {
 		watchedFilesDb.setup(observedFolder, FILES_ONLY);
 
 		write("thisfine5.ok");
-		var w = watchedFilesDb.update();
+		var w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 1);
 
 		Thread.sleep(100);// NOSONAR
 		FileUtils.touch(toAbsolutePath("thisfine5.ok"));
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 1);
 
 		Thread.sleep(100);// NOSONAR
 		FileUtils.touch(toAbsolutePath("thisfine5.ok"));
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 1);
 
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of("thisfine5.ok"), Set.of(), 1);
 	}
 
@@ -139,10 +147,10 @@ class WatchedFilesInMemoryDbTest {
 		watchedFilesDb.setup(observedFolder, FILES_ONLY);
 
 		write("thisfine3.ok");
-		var w = watchedFilesDb.update();
+		var w = watchedFilesDb.update(fs);
 
 		delete("thisfine3.ok");
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of("thisfine3.ok"), 0);
 	}
 
@@ -154,10 +162,10 @@ class WatchedFilesInMemoryDbTest {
 
 		write("thisfine.ok", "/oksubdir/thisfine.ok", "/sub/sub/dir/anotherfine.ok");
 
-		var w = watchedFilesDb.update();
+		var w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 3);
 
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w,
 		        Set.of("thisfine.ok", "/oksubdir/thisfine.ok", "/sub/sub/dir/anotherfine.ok"),
 		        Set.of(), 3);
@@ -171,10 +179,10 @@ class WatchedFilesInMemoryDbTest {
 
 		write("thisfine.ok", "/oksubdir/thisfine.ok", "/sub/sub/dir/anotherfine.ok");
 
-		var w = watchedFilesDb.update();
+		var w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 4);
 
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w,
 		        Set.of("/oksubdir", "/sub", "/sub/sub", "/sub/sub/dir"),
 		        Set.of(), 4);
@@ -188,10 +196,10 @@ class WatchedFilesInMemoryDbTest {
 
 		write("thisfine.ok", "/oksubdir/thisfine.ok", "/sub/sub/dir/anotherfine.ok");
 
-		var w = watchedFilesDb.update();
+		var w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 4 + 3);
 
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w,
 		        Set.of("/oksubdir", "/sub", "/sub/sub", "/sub/sub/dir",
 		                "thisfine.ok", "/oksubdir/thisfine.ok", "/sub/sub/dir/anotherfine.ok"),
@@ -203,18 +211,18 @@ class WatchedFilesInMemoryDbTest {
 		watchedFilesDb.setup(observedFolder, FILES_ONLY);
 
 		write("thisfine.ok", ".thisnotfine.ok");
-		var w = watchedFilesDb.update();
+		var w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 1);
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of("thisfine.ok"), Set.of(), 1);
 
 		observedFolder.setAllowedHidden(true);
 		watchedFilesDb = new WatchedFilesInMemoryDb();
 		watchedFilesDb.setup(observedFolder, FILES_ONLY);
 
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 2);
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of("thisfine.ok", ".thisnotfine.ok"), Set.of(), 2);
 	}
 
@@ -225,9 +233,9 @@ class WatchedFilesInMemoryDbTest {
 		watchedFilesDb.setup(observedFolder, FILES_ONLY);
 
 		write("thisfine");
-		var w = watchedFilesDb.update();
+		var w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 1);
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of("thisfine"), Set.of(), 1);
 	}
 
@@ -237,23 +245,29 @@ class WatchedFilesInMemoryDbTest {
 		watchedFilesDb.setup(observedFolder, FILES_ONLY);
 
 		write("thisfine.ok", "/never/here/thisfine.ok");
-		var w = watchedFilesDb.update();
+		var w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 1);
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of("thisfine.ok"), Set.of(), 1);
 
 		observedFolder.setIgnoreRelativePaths(null);
 		watchedFilesDb = new WatchedFilesInMemoryDb();
 		watchedFilesDb.setup(observedFolder, FILES_ONLY);
 
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of(), Set.of(), 2);
-		w = watchedFilesDb.update();
+		w = watchedFilesDb.update(fs);
 		assertWatchedFiles(w, Set.of("thisfine.ok", "/never/here/thisfine.ok"), Set.of(), 2);
 	}
 
 	private File toAbsolutePath(final String relativePath) {
-		return new File(observedFolder.getActiveFolder(), relativePath);
+		return new File(workingFile, relativePath).getAbsoluteFile();
+	}
+
+	private Set<File> toAbsolutePath(final Collection<String> relativePaths) {
+		return relativePaths.stream()
+		        .map(this::toAbsolutePath)
+		        .collect(toUnmodifiableSet());
 	}
 
 	private void write(final String... relativePath) {
@@ -284,26 +298,30 @@ class WatchedFilesInMemoryDbTest {
 	}
 
 	private void assertWatchedFiles(final WatchedFiles watchedFiles,
-	                                final Set<String> rFounded,
-	                                final Set<String> rLosted,
+	                                final Set<String> founded,
+	                                final Set<String> losted,
 	                                final int totalFiles) {
 		assertNotNull(watchedFiles);
-		final var currentRootDir = observedFolder.getActiveFolder().getName();
-
-		final var founded = rFounded.stream()
-		        .map(this::toAbsolutePath)
-		        .collect(toUnmodifiableSet());
-		assertEquals(founded, watchedFiles.getFounded(), "Root dir: " + currentRootDir);
-		final var losted = rLosted.stream()
-		        .map(this::toAbsolutePath)
-		        .collect(toUnmodifiableSet());
-		assertEquals(losted, watchedFiles.getLosted(), "Root dir: " + currentRootDir);
-		assertEquals(totalFiles, watchedFiles.getTotalFiles(), "Root dir: " + currentRootDir);
+		final var currentRootDir = workingFile.getName();
+		assertEquals(toAbsolutePath(founded), revealRealFiles(watchedFiles.getFounded()),
+		        "Search founded; root dir: " + currentRootDir);
+		assertEquals(toAbsolutePath(losted), revealRealFiles(watchedFiles.getLosted()),
+		        "Search losted; root dir: " + currentRootDir);
+		assertEquals(totalFiles, watchedFiles.getTotalFiles(),
+		        "Search totalFiles; root dir: " + currentRootDir);
 
 		try {
 			Thread.sleep(1);// NOSONAR S2925
 		} catch (final InterruptedException e) {
 		}
+	}
+
+	private Set<File> revealRealFiles(final Set<CachedFileAttributes> fileAttr) {
+		return fileAttr.stream()
+		        .map(CachedFileAttributes::getAbstractFile)
+		        .map(af -> (LocalFile) af)
+		        .map(LocalFile::getInternalFile)
+		        .collect(toUnmodifiableSet());
 	}
 
 	@Test

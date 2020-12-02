@@ -16,6 +16,7 @@
  */
 package tv.hd3g.jobkit.engine.flat;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -43,7 +44,7 @@ class FlatScheduledExecutorService implements ScheduledExecutorService {
 
 	public void runAllOnce() {
 		log.debug("Run {} scheduledFuture(s)", registedTasks.size());
-		registedTasks.forEach(FlatScheduledFuture::run);
+		new ArrayList<>(registedTasks).forEach(FlatScheduledFuture::run);
 	}
 
 	public void add(final FlatScheduledFuture runReference) {

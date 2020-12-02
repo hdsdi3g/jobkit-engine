@@ -16,9 +16,11 @@
  */
 package tv.hd3g.jobkit.engine.watchfolder;
 
+import tv.hd3g.transfertfiles.AbstractFileSystemURL;
+
 public interface WatchedFilesDb {
 
 	void setup(final ObservedFolder observedFolder, final WatchFolderPickupType pickUp);
 
-	WatchedFiles update();
+	WatchedFiles update(AbstractFileSystemURL fileSystem);
 }

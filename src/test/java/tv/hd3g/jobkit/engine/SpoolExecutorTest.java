@@ -50,7 +50,7 @@ class SpoolExecutorTest {
 		spoolExecutorName = "Internal test Spool executor";
 		threadName = "TestSpoolExecutor" + String.valueOf(System.nanoTime());
 		threadFactory = r -> {
-			final Thread t = new Thread(r);
+			final var t = new Thread(r);
 			t.setDaemon(false);
 			t.setName(threadName);
 			threadId = t.getId();
@@ -61,9 +61,9 @@ class SpoolExecutorTest {
 
 	@Test
 	void testAddToQueue() throws InterruptedException {
-		final CountDownLatch smChkVerifyEvent = new CountDownLatch(1);
-		final CountDownLatch smCmd = new CountDownLatch(1);
-		final CountDownLatch smAfter = new CountDownLatch(1);
+		final var smChkVerifyEvent = new CountDownLatch(1);
+		final var smCmd = new CountDownLatch(1);
+		final var smAfter = new CountDownLatch(1);
 
 		assertTrue(spoolExecutor.addToQueue(() -> {
 			try {
@@ -104,12 +104,12 @@ class SpoolExecutorTest {
 
 	@Test
 	void testAddToQueue_withError() throws InterruptedException {
-		final int total = 5;
+		final var total = 5;
 
-		for (int pos = 0; pos < total; pos++) {
-			final CountDownLatch smAfter = new CountDownLatch(1);
-			final AtomicReference<Exception> captured = new AtomicReference<>();
-			final int _pos = pos;
+		for (var pos = 0; pos < total; pos++) {
+			final var smAfter = new CountDownLatch(1);
+			final var captured = new AtomicReference<Exception>();
+			final var _pos = pos;
 			assertTrue(spoolExecutor.addToQueue(() -> {
 				throw new IllegalArgumentException(String.valueOf(_pos));
 			}, name, 0, e -> {
@@ -140,12 +140,12 @@ class SpoolExecutorTest {
 
 	@Test
 	void testAddToQueue_multiple() throws InterruptedException {
-		final int total = 50;
+		final var total = 50;
 
-		final CountDownLatch smAfter = new CountDownLatch(total);
-		final AtomicInteger count = new AtomicInteger(0);
+		final var smAfter = new CountDownLatch(total);
+		final var count = new AtomicInteger(0);
 
-		for (int pos = 0; pos < total; pos++) {
+		for (var pos = 0; pos < total; pos++) {
 			assertTrue(spoolExecutor.addToQueue(() -> {
 				count.incrementAndGet();
 			}, name, 0, e -> {
@@ -158,11 +158,11 @@ class SpoolExecutorTest {
 
 	@Test
 	void testAddToQueue_onebyone() throws InterruptedException {
-		final int total = 10;
-		final AtomicInteger count = new AtomicInteger(0);
+		final var total = 10;
+		final var count = new AtomicInteger(0);
 
-		for (int pos = 0; pos < total; pos++) {
-			final CountDownLatch smAfter = new CountDownLatch(1);
+		for (var pos = 0; pos < total; pos++) {
+			final var smAfter = new CountDownLatch(1);
 			assertTrue(spoolExecutor.addToQueue(() -> {
 				count.incrementAndGet();
 			}, name, 0, e -> {
@@ -175,7 +175,7 @@ class SpoolExecutorTest {
 
 	@Test
 	void testAddToQueue_afterRunError() throws InterruptedException {
-		final CountDownLatch smCmd0 = new CountDownLatch(1);
+		final var smCmd0 = new CountDownLatch(1);
 
 		assertTrue(spoolExecutor.addToQueue(() -> {
 			smCmd0.countDown();
@@ -184,7 +184,7 @@ class SpoolExecutorTest {
 		}));
 		assertTrue(smCmd0.await(100, MILLISECONDS));
 
-		final CountDownLatch smCmd1 = new CountDownLatch(2);
+		final var smCmd1 = new CountDownLatch(2);
 		assertTrue(spoolExecutor.addToQueue(() -> {
 			smCmd1.countDown();
 		}, name, 0, e -> {
@@ -197,9 +197,9 @@ class SpoolExecutorTest {
 	void testGetQueueSize() throws InterruptedException {
 		assertEquals(0, spoolExecutor.getQueueSize());
 
-		final CountDownLatch smCmd0 = new CountDownLatch(1);
-		final CountDownLatch smCmd1 = new CountDownLatch(1);
-		final CountDownLatch reverseCmd = new CountDownLatch(1);
+		final var smCmd0 = new CountDownLatch(1);
+		final var smCmd1 = new CountDownLatch(1);
+		final var reverseCmd = new CountDownLatch(1);
 		spoolExecutor.addToQueue(() -> {
 			smCmd0.countDown();
 			try {
@@ -229,9 +229,9 @@ class SpoolExecutorTest {
 	void testIsRunning() throws InterruptedException {
 		assertFalse(spoolExecutor.isRunning());
 
-		final CountDownLatch smCmd0 = new CountDownLatch(1);
-		final CountDownLatch smCmd1 = new CountDownLatch(1);
-		final CountDownLatch reverseCmd = new CountDownLatch(1);
+		final var smCmd0 = new CountDownLatch(1);
+		final var smCmd1 = new CountDownLatch(1);
+		final var reverseCmd = new CountDownLatch(1);
 		spoolExecutor.addToQueue(() -> {
 			smCmd0.countDown();
 			try {
@@ -254,7 +254,7 @@ class SpoolExecutorTest {
 	void testShutdown() throws InterruptedException {
 		spoolExecutor.shutdown();
 
-		final CountDownLatch smCmd = new CountDownLatch(1);
+		final var smCmd = new CountDownLatch(1);
 		assertFalse(spoolExecutor.addToQueue(() -> {
 			smCmd.countDown();
 		}, name, 0, e -> {
@@ -266,7 +266,7 @@ class SpoolExecutorTest {
 
 	@Test
 	void testWaitToClose() {
-		final AtomicInteger count = new AtomicInteger(0);
+		final var count = new AtomicInteger(0);
 
 		spoolExecutor.addToQueue(() -> {
 			try {
@@ -302,9 +302,9 @@ class SpoolExecutorTest {
 		assertEquals(0, lastStatus.getQueue().size());
 		assertFalse(lastStatus.isShutdown());
 
-		final CountDownLatch lockJob0Run = new CountDownLatch(1);
-		final CountDownLatch lockJob0AfterRun = new CountDownLatch(1);
-		final CountDownLatch lockJob1Run = new CountDownLatch(1);
+		final var lockJob0Run = new CountDownLatch(1);
+		final var lockJob0AfterRun = new CountDownLatch(1);
+		final var lockJob1Run = new CountDownLatch(1);
 		spoolExecutor.addToQueue(() -> {
 			try {
 				lockJob0Run.await(100, MILLISECONDS);
@@ -390,11 +390,11 @@ class SpoolExecutorTest {
 
 	@Test
 	void testPriorities() throws InterruptedException {
-		final long startDate = System.currentTimeMillis();
-		final int count = 10;
-		final long sleep = 10;
+		final var startDate = System.currentTimeMillis();
+		final var count = 10;
+		final var sleep = 10L;
 
-		final CountDownLatch latch = new CountDownLatch(count);
+		final var latch = new CountDownLatch(count);
 
 		class PJob {
 			volatile long startTime;
@@ -414,7 +414,8 @@ class SpoolExecutorTest {
 
 		final var allPjobs = IntStream.range(0, count)
 		        .mapToObj(i -> new PJob())
-		        .collect(Collectors.toUnmodifiableList());
+		        .collect(Collectors
+		                .toUnmodifiableList());
 		allPjobs.forEach(j -> spoolExecutor.addToQueue(j.command, j.name, j.priority, j.afterRunCommand));
 
 		latch.await(count * sleep * 2, MILLISECONDS);

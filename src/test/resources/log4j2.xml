@@ -24,6 +24,8 @@
 
 	<Loggers>
 		<Logger name="tv.hd3g" level="error" />
+        <!-- Logger name="tv.hd3g.jobkit.engine.watchfolder.WatchedFilesInMemoryDb" level="trace" /-->
+        <!-- Logger name="tv.hd3g.transfertfiles.ftp.FTPFile" level="trace" /-->
 
 		<Root level="warn">
 			<AppenderRef ref="Console OUT Light" />
