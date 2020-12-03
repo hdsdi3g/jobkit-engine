@@ -41,8 +41,8 @@ class FlatScheduledExecutorServiceTest {
 	Runnable task;
 
 	@BeforeEach
-	void init() {
-		MockitoAnnotations.initMocks(this);
+	void init() throws Exception {
+		MockitoAnnotations.openMocks(this).close();
 		service = new FlatScheduledExecutorService();
 		task = () -> {
 		};

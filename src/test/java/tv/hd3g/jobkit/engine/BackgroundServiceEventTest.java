@@ -36,8 +36,8 @@ class BackgroundServiceEventTest {
 	long interval;
 
 	@BeforeEach
-	void init() {
-		MockitoAnnotations.initMocks(this);
+	void init() throws Exception {
+		MockitoAnnotations.openMocks(this).close();
 
 		interval = 10l;
 		scheduledExecutorService = Executors.newScheduledThreadPool(1);

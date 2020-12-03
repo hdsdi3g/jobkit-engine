@@ -19,8 +19,8 @@ class SpoolerStatusTest {
 	private SpoolerStatus spoolerStatus;
 
 	@BeforeEach
-	public void init() {
-		MockitoAnnotations.initMocks(this);
+	void init() throws Exception {
+		MockitoAnnotations.openMocks(this).close();
 		createdThreadsCount = System.nanoTime();
 		spoolerStatus = new SpoolerStatus(spoolExecutors, createdThreadsCount, true);
 	}

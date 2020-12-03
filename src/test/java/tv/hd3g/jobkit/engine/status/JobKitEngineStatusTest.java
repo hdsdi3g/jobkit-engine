@@ -19,8 +19,8 @@ class JobKitEngineStatusTest {
 	JobKitEngineStatus jobKitEngineStatus;
 
 	@BeforeEach
-	void init() {
-		MockitoAnnotations.initMocks(this);
+	void init() throws Exception {
+		MockitoAnnotations.openMocks(this).close();
 		jobKitEngineStatus = new JobKitEngineStatus(spoolerStatus, backgroundServicesStatus);
 	}
 

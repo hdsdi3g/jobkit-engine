@@ -55,8 +55,8 @@ class WatchfoldersTest {
 	Watchfolders watchfolders;
 
 	@BeforeEach
-	void init() {
-		MockitoAnnotations.initMocks(this);
+	void init() throws Exception {
+		MockitoAnnotations.openMocks(this).close();
 		observedFolder = new ObservedFolder();
 		observedFolder.setLabel("Internal test");
 		observedFolder.setActiveFolder(new File("."));

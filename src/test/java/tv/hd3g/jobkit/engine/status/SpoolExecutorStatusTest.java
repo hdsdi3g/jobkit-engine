@@ -29,8 +29,8 @@ class SpoolExecutorStatusTest {
 	private SpoolExecutorStatus spoolExecutorStatus;
 
 	@BeforeEach
-	public void init() {
-		MockitoAnnotations.initMocks(this);
+	void init() throws Exception {
+		MockitoAnnotations.openMocks(this).close();
 
 		spoolName = String.valueOf(System.nanoTime());
 		currentOperationName = String.valueOf(System.nanoTime());

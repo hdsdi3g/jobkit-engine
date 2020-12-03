@@ -60,8 +60,8 @@ class BackgroundServiceTest {
 	long timedInterval;
 
 	@BeforeEach
-	void init() {
-		MockitoAnnotations.initMocks(this);
+	void init() throws Exception {
+		MockitoAnnotations.openMocks(this).close();
 		name = String.valueOf(System.nanoTime());
 		spoolName = String.valueOf(System.nanoTime());
 		timedInterval = Math.abs(random.nextLong());

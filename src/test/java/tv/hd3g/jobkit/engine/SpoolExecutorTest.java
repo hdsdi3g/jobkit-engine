@@ -43,8 +43,8 @@ class SpoolExecutorTest {
 	SpoolExecutor spoolExecutor;
 
 	@BeforeEach
-	void init() {
-		MockitoAnnotations.initMocks(this);
+	void init() throws Exception {
+		MockitoAnnotations.openMocks(this).close();
 		name = "InternalTest " + String.valueOf(System.nanoTime());
 
 		spoolExecutorName = "Internal test Spool executor";

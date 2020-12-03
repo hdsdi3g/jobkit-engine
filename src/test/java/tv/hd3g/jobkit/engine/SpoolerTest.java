@@ -25,8 +25,8 @@ class SpoolerTest {
 	Spooler spooler;
 
 	@BeforeEach
-	void init() {
-		MockitoAnnotations.initMocks(this);
+	void init() throws Exception {
+		MockitoAnnotations.openMocks(this).close();
 		spooler = new Spooler(event);
 	}
 
