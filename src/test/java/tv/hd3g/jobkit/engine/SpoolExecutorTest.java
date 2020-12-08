@@ -3,6 +3,7 @@ package tv.hd3g.jobkit.engine;
 import static java.lang.Thread.State.RUNNABLE;
 import static java.lang.Thread.State.TIMED_WAITING;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -391,20 +392,21 @@ class SpoolExecutorTest {
 	@Test
 	void testPriorities() throws InterruptedException {
 		final var startDate = System.currentTimeMillis();
-		final var count = 10;
-		final var sleep = 10L;
+		final var count = 3;
 
-		final var latch = new CountDownLatch(count);
+		final var latchCheck = new CountDownLatch(count);
+		final var latchFeed = new CountDownLatch(1);
 
 		class PJob {
 			volatile long startTime;
 			final Runnable command = () -> {
 				startTime = System.currentTimeMillis() - startDate;
 				try {
-					Thread.sleep(sleep);// NOSONAR
+					Thread.sleep(2);// NOSONAR
+					latchFeed.await(1, SECONDS);
 				} catch (final InterruptedException e) {// NOSONAR
 				}
-				latch.countDown();
+				latchCheck.countDown();
 			};
 			final String name = "N" /*+ String.valueOf(random.nextInt(10000))*/;
 			final int priority = random.nextInt(count * 100);
@@ -418,7 +420,8 @@ class SpoolExecutorTest {
 		                .toUnmodifiableList());
 		allPjobs.forEach(j -> spoolExecutor.addToQueue(j.command, j.name, j.priority, j.afterRunCommand));
 
-		latch.await(count * sleep * 2, MILLISECONDS);
+		latchFeed.countDown();
+		latchCheck.await(10, SECONDS);
 
 		/**
 		 * skip 1 because the first pushed will be always random.
