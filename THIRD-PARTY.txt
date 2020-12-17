@@ -43,6 +43,6 @@ Lists of 46 third-party dependencies.
      (The Apache License, Version 2.0) org.opentest4j:opentest4j (org.opentest4j:opentest4j:1.2.0 - https://github.com/ota4j-team/opentest4j)
      (MIT License) SLF4J API Module (org.slf4j:slf4j-api:1.7.7 - http://www.slf4j.org)
      (Public Domain) XZ for Java (org.tukaani:xz:1.8 - https://tukaani.org/xz/java.html)
-     (GNU Lesser General Public License, Version 3) transfertfiles (tv.hd3g:transfertfiles:0.0.1 - https://github.com/hdsdi3g/transfertfiles)
+     (GNU Lesser General Public License, Version 3) transfertfiles (tv.hd3g:transfertfiles:0.0.2 - https://github.com/hdsdi3g/transfertfiles)
      (GNU Lesser General Public License, Version 3) CodePolicyValidation (tv.hd3g.commons:codepolicyvalidation:0.2.0 - https://github.com/hdsdi3g/codepolicyvalidation)
      (GNU Lesser General Public License, Version 3) Commons Interfaces (tv.hd3g.commons:interfaces:0.3.0 - https://github.com/hdsdi3g/interfaces)
