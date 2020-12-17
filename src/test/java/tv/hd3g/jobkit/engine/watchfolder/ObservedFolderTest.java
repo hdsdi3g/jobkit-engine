@@ -78,7 +78,7 @@ class ObservedFolderTest {
 	void testPostConfiguration_errors() {
 		assertThrows(NullPointerException.class, () -> observedFolder.postConfiguration());
 		observedFolder.setTargetFolder(new File("/" + String.valueOf(System.nanoTime())).getPath());
-		assertThrows(IORuntimeException.class, () -> observedFolder.postConfiguration());
+		assertThrows(NullPointerException.class, () -> observedFolder.postConfiguration());
 		observedFolder.setTargetFolder(new File("pom.xml").getPath());
 		assertThrows(IORuntimeException.class, () -> observedFolder.postConfiguration());
 	}
