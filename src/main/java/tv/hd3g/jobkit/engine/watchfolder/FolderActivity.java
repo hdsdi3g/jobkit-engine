@@ -38,7 +38,7 @@ public interface FolderActivity {
 	                 final Duration scanTime,
 	                 final WatchedFiles scanResult);
 
-	default void onScanErrorFolder(final ObservedFolder observedFolder) {
+	default void onScanErrorFolder(final ObservedFolder observedFolder, final Exception e) {
 	}
 
 }

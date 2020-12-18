@@ -22,12 +22,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
+import java.nio.file.NoSuchFileException;
 import java.time.Duration;
 import java.util.List;
 
@@ -79,7 +81,7 @@ class WatchfoldersTest {
 		watchfolders = new Watchfolders(List.of(observedFolder), folderActivity,
 		        Duration.ofMillis(1), jobKitEngine, "default", "default", () -> watchedFilesDb);
 
-		verify(folderActivity, times(0)).onScanErrorFolder(any(ObservedFolder.class));
+		verify(folderActivity, times(0)).onScanErrorFolder(any(ObservedFolder.class), any(Exception.class));
 
 		observedFolder.setTargetFolder("file://localhost/this/not/exists");
 		assertTrue(jobKitEngine.isEmptyActiveServicesList());
@@ -88,12 +90,13 @@ class WatchfoldersTest {
 		jobKitEngine.runAllServicesOnce();
 
 		assertFalse(jobKitEngine.isEmptyActiveServicesList());
-		verify(folderActivity, times(1)).onScanErrorFolder(eq(observedFolder));
+		verify(folderActivity, times(1)).onScanErrorFolder(eq(observedFolder),
+		        argThat(f -> f.getCause() instanceof NoSuchFileException));
 
 		assertThrows(IORuntimeException.class, () -> jobKitEngine.runAllServicesOnce());
 
 		assertFalse(jobKitEngine.isEmptyActiveServicesList());
-		verify(folderActivity, times(1)).onScanErrorFolder(eq(observedFolder));
+		verify(folderActivity, times(1)).onScanErrorFolder(eq(observedFolder), any(Exception.class));
 
 		assertThrows(IORuntimeException.class, () -> jobKitEngine.runAllServicesOnce());
 
@@ -103,7 +106,7 @@ class WatchfoldersTest {
 		observedFolder.setTargetFolder("file://localhost/" + new File("").getAbsolutePath());
 		jobKitEngine.runAllServicesOnce();
 		verify(folderActivity, times(1)).onStartScans(eq(List.of(observedFolder)));
-		verify(folderActivity, times(1)).onScanErrorFolder(eq(observedFolder));
+		verify(folderActivity, times(1)).onScanErrorFolder(eq(observedFolder), any(Exception.class));
 	}
 
 	@Test
@@ -154,7 +157,7 @@ class WatchfoldersTest {
 		verify(folderActivity, times(2)).onAfterScan(eq(observedFolder), any(Duration.class), eq(watchedFiles));
 		verify(folderActivity, times(2)).onStopScans(eq(List.of(observedFolder)));
 
-		verify(folderActivity, times(0)).onScanErrorFolder(any(ObservedFolder.class));
+		verify(folderActivity, times(0)).onScanErrorFolder(any(ObservedFolder.class), any(Exception.class));
 	}
 
 	@Test

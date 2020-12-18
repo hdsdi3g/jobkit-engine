@@ -132,7 +132,7 @@ public class Watchfolders {
 					        log.error("Problem during scan with {}, cancel scans for it", oF.getLabel(), e);
 					        jobKitEngine.runOneShot("Problem during scan with watchfolder " + oF.getLabel(),
 					                spoolEvents, 0,
-					                () -> eventActivity.onScanErrorFolder(oF), onOneShotError);
+					                () -> eventActivity.onScanErrorFolder(oF, e), onOneShotError);
 					        return true;
 				        }
 			        }).collect(toUnmodifiableList());
