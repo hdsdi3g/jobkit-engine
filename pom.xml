@@ -5,7 +5,7 @@
 	<groupId>tv.hd3g</groupId>
 	<artifactId>jobkit-engine</artifactId>
 	<packaging>jar</packaging>
-	<version>3.0.2-SNAPSHOT</version>
+	<version>3.0.2</version>
 
 	<name>JobKit-engine</name>
 	<url>https://github.com/hdsdi3g/jobkit-engine</url>
